@@ -1,0 +1,215 @@
+# VMware 14 Workstation Troubleshooting vmmon and compilation on < 4.19 ( formerly  4.14.5-1-ARCH ) Arch distribution based.
+# Version of installation Bundle : VMware-Workstation-Full-14.0.0-6661328.x86_64
+################################################################################
+#### Thanks to chrislovessoccer 
+#### https://communities.vmware.com/message/2710241#2710241
+#### Quote from communities.vmware.com
+################################################################################
+################################################################################
+
+
+
+####In case no one has posted it already, look at the answer under:
+
+####arch linux - VMWare Workstation - not enough physical memory since last update - Super User
+
+####I've tried it on Fedora 26, VMware Workstation 14 Player, kernel 4.13.4-200.x86_64 and can confirm it works!
+
+ 
+
+####Below is what I did based on the above. I hope it helps someone else.
+
+ 
+CLI
+
+cd /usr/lib/vmware/modules/source
+
+tar xf vmmon.tar
+
+cd vmmon-only/linux
+
+ 
+
+edit vmmon-only/linux/hostif.c
+
+ 
+
+...
+
+#include "versioned_atomic.h"
+
+ 
+
+--- BEGIN ADD ---
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
+
+#   define global_zone_page_state global_page_state
+
+#endif
+
+ 
+
+static unsigned long get_nr_slab_unreclaimable(void)
+
+{
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+
+   return global_node_page_state(NR_SLAB_UNRECLAIMABLE);
+
+#else
+
+   return global_page_state(NR_SLAB_UNRECLAIMABLE);
+
+#endif
+
+}
+
+ 
+
+static unsigned long get_nr_unevictable(void)
+
+{
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+
+   return global_node_page_state(NR_UNEVICTABLE);
+
+#else
+
+   return global_page_state(NR_UNEVICTABLE);
+
+#endif
+
+}
+
+ 
+
+static unsigned long get_nr_anon_mapped(void)
+
+{
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+
+   return global_node_page_state(NR_ANON_MAPPED);
+
+#else
+
+   return global_page_state(NR_ANON_PAGES);
+
+#endif
+
+}
+
+--- END ADD ---
+
+ 
+
+...
+
+    unsigned int reservedPages = MEMDEFAULTS_MIN_HOST_PAGES;
+
+    unsigned int hugePages = (vm == NULL) ? 0 :
+
+       BYTES_2_PAGES(vm->memInfo.hugePageBytes);
+
+ 
+
+--- BEGIN REPLACE ---
+
+   unsigned int lockedPages = global_page_state(NR_PAGETABLE) +
+
+                              global_page_state(NR_SLAB_UNRECLAIMABLE) +
+
+                              global_page_state(NR_UNEVICTABLE) +
+
+                              hugePages + reservedPages;
+
+   unsigned int anonPages =
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+
+      global_page_state(NR_ANON_MAPPED);
+
+#else
+
+      global_page_state(NR_ANON_PAGES);
+
+#endif
+
+--- WITH ---
+
+   unsigned int lockedPages = global_zone_page_state(NR_PAGETABLE) +
+
+                              get_nr_slab_unreclaimable() +
+
+                              get_nr_unevictable() +
+
+                              hugePages + reservedPages;
+
+   unsigned int anonPages = get_nr_anon_mapped();
+
+--- END REPLACE ---
+
+ 
+
+
+
+cd ../..
+
+tar cf vmmon.tar vmmon-only
+
+rm -rf vmmon-only # cleanup
+
+ 
+
+####  Lastly, we need to rebuild the patched module
+
+
+CLI
+
+sudo vmware-modconfig --console --install-all
+
+
+
+################################################################################
+################################################################################
+############ If it doens-t work add these two steps from wiki
+################################################################################
+################################################################################
+
+
+#### Kernel modules fail to build after Linux 4.9
+
+#### On VMware Workstation Pro 12.5.2, the module source needs to be modified to be successfully compiled under kernel 4.9 [1].
+
+CLI
+# cd /usr/lib/vmware/modules/source
+# tar xf vmmon.tar
+# mv vmmon.tar vmmon.old.tar
+# sed -i 's/uvAddr, numPages, 0, 0/uvAddr, numPages, 0/g' vmmon-only/linux/hostif.c
+# tar cf vmmon.tar vmmon-only
+# rm -r vmmon-only
+
+# tar xf vmnet.tar
+# mv vmnet.tar vmnet.old.tar
+# sed -i 's/addr, 1, 1, 0/addr, 1, 0/g' vmnet-only/userif.c
+# tar cf vmnet.tar vmnet-only
+# rm -r vmnet-only
+
+#### Kernel modules fail to build on Linux 4.13
+
+#### On VMware Workstation Pro 12.5.7, the module source needs to be modified to be successfully compiled under kernel 4.13 [2].
+
+CLI
+# cd /usr/lib/vmware/modules/source
+# tar xf vmnet.tar
+# mv vmnet.tar vmnet.old.tar
+# sed -i 's/atomic_inc(&clone->users);/clone = skb_get(clone);/g' vmnet-only/bridge.c
+# tar cf vmnet.tar vmnet-only
+# rm -r vmnet-only
+
+
+
+
