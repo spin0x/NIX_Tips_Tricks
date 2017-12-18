@@ -1,0 +1,62 @@
+dpkg-reconfigure locales
+
+Here I chose fr_FR.UTF-8 UTF-8 and unselected en_US.UTF-8 UTF-8.
+
+Output from locale:
+
+LANG=fr_FR.UTF-8
+LANGUAGE=fr_FR.UTF-8
+LC_CTYPE="fr_FR.UTF-8"
+LC_NUMERIC="fr_FR.UTF-8"
+LC_TIME="fr_FR.UTF-8"
+LC_COLLATE="fr_FR.UTF-8"
+LC_MONETARY="fr_FR.UTF-8"
+LC_MESSAGES="fr_FR.UTF-8"
+LC_PAPER="fr_FR.UTF-8"
+LC_NAME="fr_FR.UTF-8"
+LC_ADDRESS="fr_FR.UTF-8"
+LC_TELEPHONE="fr_FR.UTF-8"
+LC_MEASUREMENT="fr_FR.UTF-8"
+LC_IDENTIFICATION="fr_FR.UTF-8"
+LC_ALL=
+
+Content of /etc/default/locale:
+
+LANG=fr_FR.UTF-8
+LANGUAGE=fr_FR.UTF-8
+
+Content of /etc/default/keyboard:
+
+# KEYBOARD CONFIGURATION FILE
+# Consult the keyboard(5) manual page.
+XKBMODEL="pc105"
+XKBLAYOUT="fr"
+XKBVARIANT="nodeadkeys"
+XKBOPTIONS="terminate:ctrl_alt_bksp"
+BACKSPACE="guess"
+
+I ran setupcon after making these settings and it didn't change anything, the layout still was en_US.
+
+After that, I ran
+
+dpkg-reconfigure keyboard-configuration
+
+and set French - no dead keys as keyboard layout. Still no change, neither at once nor after a reboot.
+
+Next, I tried
+
+dpkg-reconfigure console-data
+
+Here I chose
+
+Choose layout from entire list
+
+and then
+
+pc / quertz / French / Standard / latin9 - no dead keys
+
+The output after that was:
+
+Looking for keymap to install:
+fr-latin9-nodeadkeys
+#
